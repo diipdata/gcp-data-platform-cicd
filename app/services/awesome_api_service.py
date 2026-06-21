@@ -17,7 +17,7 @@ class AwesomeAPIService:
     BASE_URL = "https://economia.awesomeapi.com.br/last"
 
     # Lê o que o Terraform injetou na memória do container
-    API_KEY = os.environ.get("EXCHANGERATE_API_KEY")
+    API_KEY = os.environ.get("API_KEY")
 
     @staticmethod
     def log_gcp(severity: str, message: str, payload: dict = None):
