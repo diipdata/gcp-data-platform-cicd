@@ -16,6 +16,9 @@ logger.addHandler(handler)
 class AwesomeAPIService:
     BASE_URL = "https://economia.awesomeapi.com.br/last"
 
+    # Lê o que o Terraform injetou na memória do container
+    API_KEY = os.environ.get("EXCHANGERATE_API_KEY")
+
     @staticmethod
     def log_gcp(severity: str, message: str, payload: dict = None):
         """Formata o log no padrão que o Google Cloud Logging indexa nativamente"""
