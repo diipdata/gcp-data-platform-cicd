@@ -30,12 +30,24 @@ resource "google_cloud_run_v2_service" "api" {
 
   # FinOps: Aplica as tags de custo no recurso do Cloud Run
   labels = var.labels
+
+  # Impede o Terraform de reverter o deploy do GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image, # Ignora quando o GitHub trocar a imagem do container
+      client,
+      client_version,
+      labels,
+      template[0].labels
+    ]
+  }
 }
+
 
 # Permite que qualquer pessoa na internet acesse a API pública (Não autenticado)
 resource "google_cloud_run_v2_service_iam_member" "public_access" {
   name     = google_cloud_run_v2_service.api.name
   location = google_cloud_run_v2_service.api.location
-  role     = "roles/run.viewer"
+  role     = "roles/run.invoker"
   member   = "allUsers"
 }
