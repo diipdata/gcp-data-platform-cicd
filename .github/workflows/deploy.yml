@@ -39,6 +39,9 @@ jobs:
       - name: Rodar Linter (Ruff)
         run: uv run ruff check app/
 
+      - name: Rodar Testes Automatizados (Pytest)
+        run: uv run pytest
+
   build-and-deploy:
     name: 🚀 Build & Deploy to GCP
     needs: quality-and-test # Só executa se o passo de qualidade passar
