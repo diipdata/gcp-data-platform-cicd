@@ -1,0 +1,89 @@
+name: Deploy Continuous Integration & Deployment
+
+on:
+  push:
+    branches:
+      - main  # Dispara a pipeline sempre que houver push na branch principal
+
+permissions:
+  contents: read
+  id-token: write # REQUISITO OBRIGATÓRIO para o WIF conseguir gerar o token OIDC temporário
+
+env:
+  PROJECT_ID: "gcp-data-platform-26"              # <-- COLOQUE O ID DO SEU PROJETO GCP
+  REGION: "us-central1"                          # Região definida no Terraform
+  REPO_NAME: "data-platform-repository"          # Nome do Artifact Registry criado no TF
+  SERVICE_NAME: "data-platform-api"              # Nome do Cloud Run criado no TF
+  # Cole abaixo o valor exato gerado no output 'workload_identity_provider' do Terraform:
+  WIF_PROVIDER: "projects/993842800482/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider" 
+  # Cole abaixo o valor exato gerado no output 'service_account_email' do Terraform:
+  WIF_SERVICE_ACCOUNT: "github-actions-deployer@gcp-data-platform-26.iam.gserviceaccount.com"
+
+jobs:
+  quality-and-test:
+    name: 🧪 Quality & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Configurar o UV (Gerenciador Python rápido)
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true # FinOps: Reduz tempo de execução usando cache de pacotes
+
+      - name: Configurar Python
+        run: uv python install 3.12
+
+      - name: Rodar Linter (Ruff)
+        run: uv run ruff check app/
+
+  build-and-deploy:
+    name: 🚀 Build & Deploy to GCP
+    needs: quality-and-test # Só executa se o passo de qualidade passar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------------
+      # Autenticação Segura via Workload Identity Federation (Sem chaves JSON!)
+      # ------------------------------------------------------------------------
+      - name: Autenticar no Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: "access_token"
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      # Configura a CLI gcloud e o Docker para conseguir fazer push no Artifact Registry
+      - name: Configurar Docker para o GCP
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      # Builda a imagem usando o Docker local do GitHub Actions
+      - name: Build e Push da Imagem Docker
+        run: |
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          
+          # Constroi a imagem apontando para a tag do repositório
+          docker build -t $IMAGE_TAG .
+          
+          # Envia para o Artifact Registry do Google
+          docker push $IMAGE_TAG
+          
+          # Salva a tag em uma variável de ambiente para o próximo passo
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      # Atualiza o serviço do Cloud Run substituindo o "Hello World" placeholder pela sua imagem real
+      - name: Deploy no Google Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
