@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.ruff_cache/
+
+# Ambiente Virtual do UV e ferramentas
+.venv/
+.mise.toml
+
+# Terraform (antecipando a próxima etapa)
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
