@@ -1,5 +1,8 @@
 resource "google_cloud_run_v2_service" "api" {
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_secret_manager_secret_version.api_key_version
+  ]
   name       = "data-platform-api"
   location   = var.region
   ingress    = "INGRESS_TRAFFIC_ALL"
@@ -24,6 +27,17 @@ resource "google_cloud_run_v2_service" "api" {
 
       ports {
         container_port = 8080
+      }
+
+      # Transformar a secret key/token em variável de ambiente
+      env {
+        name = "API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api_key.secret_id
+            version = "latest"
+          }
+        }
       }
     }
   }

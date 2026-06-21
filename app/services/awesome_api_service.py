@@ -1,3 +1,4 @@
+import os
 import requests
 import json
 import logging
@@ -35,6 +36,33 @@ class AwesomeAPIService:
         Busca a cotação em tempo real de um par de moedas.
         Exemplo de pair: 'USD-BRL', 'EUR-BRL'
         """
+        
+        # Separador para a nova API (ex: 'USD-BRL' vira base='USD', target='BRL')
+        base_currency, target_currency = pair.split("-")
+
+        # Tenta a ExchangeRate-API se houver Token configurado
+        if AwesomeAPIService.API_KEY:
+            try:
+                AwesomeAPIService.log_gcp("INFO", f"Tentando ExchangeRate-API para o par: {pair}")
+                url_v6 = f"https://v6.exchangerate-api.com/v6/{AwesomeAPIService.API_KEY}/pair/{base_currency}/{target_currency}"
+                
+                response_v6 = requests.get(url_v6, timeout=5)
+                response_v6.raise_for_status()
+                data_v6 = response_v6.json()
+
+                if data_v6.get("result") == "success":
+                    return {
+                        "moeda": f"{base_currency}/{target_currency}",
+                        "valor_compra": float(data_v6.get("conversion_rate")),
+                        "valor_venda": float(data_v6.get("conversion_rate")),
+                        "variacao": 0.0,
+                        "data": datetime.today().strftime('%Y-%m-%d'),
+                        "provedor": "ExchangeRate-API" # Tag para auditar nos logs
+                    }
+            except Exception as e:
+                # Se falhar (ex: erro 429 deles), gera log de aviso e deixa o fluxo continuar para o seu código antigo
+                AwesomeAPIService.log_gcp("WARNING", "Falha na ExchangeRate-API. Ativando fallback automático.", {"error": str(e)})
+
         url = f"{AwesomeAPIService.BASE_URL}/{pair}"
         try:
             response = requests.get(url, timeout=10)

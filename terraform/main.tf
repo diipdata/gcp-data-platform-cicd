@@ -25,7 +25,8 @@ variable "gcp_services" {
     "iam.googleapis.com",                  # Gerenciamento de acessos
     "artifactregistry.googleapis.com",     # Armazenamento do Docker
     "run.googleapis.com",                  # Execução da API
-    "iamcredentials.googleapis.com"        # Necessário para o GitHub OIDC (Segurança)
+    "iamcredentials.googleapis.com",       # Necessário para o GitHub OIDC (Segurança)
+    "secretmanager.googleapis.com"	   # 
   ]
 }
 
